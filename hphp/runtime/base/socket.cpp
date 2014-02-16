@@ -59,7 +59,7 @@ Socket::Socket(int sockfd, int type, const char *address /* = NULL */,
 
   struct timeval tv;
   if (timeout <= 0) {
-    tv.tv_sec = RuntimeOption::SocketDefaultTimeout;
+    tv.tv_sec = g_context->getSocketDefaultTimeout();
     tv.tv_usec = 0;
   } else {
     tv.tv_sec = (int)timeout;
@@ -79,6 +79,8 @@ Socket::~Socket() {
 
 void Socket::sweep() {
   Socket::closeImpl();
+  using std::string;
+  m_address.~string();
   File::sweep();
   Socket::operator delete(this);
 }
@@ -208,7 +210,7 @@ int64_t Socket::writeImpl(const char *buffer, int64_t length) {
 }
 
 bool Socket::eof() {
-  if (!m_eof) {
+  if (!m_eof && valid()) {
     // Test if stream is EOF if the flag is not already set.
     // Attempt to peek at one byte from the stream, checking for:
     // i)  recv() closing gracefully, or

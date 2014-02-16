@@ -188,6 +188,10 @@ public:
     close();
   }
 
+  virtual bool isInvalid() const {
+    return !m_cp;
+  }
+
   void closeForSweep() {
     assert(!m_exception);
     if (m_cp) {
@@ -1296,10 +1300,12 @@ static void hphp_curl_multi_select(CURLM *mh, int timeout_ms, int *ret) {
 
 #ifndef HAVE_CURL_MULTI_SELECT
 # ifdef HAVE_CURL_MULTI_WAIT
-#  define curl_multi_select(mh, tm, ret) curl_multi_wait((mh), nullptr, 0, (tm), (ret))
+#  define curl_multi_select_func(mh, tm, ret) curl_multi_wait((mh), nullptr, 0, (tm), (ret))
 # else
-#  define curl_multi_select hphp_curl_multi_select
+#  define curl_multi_select_func hphp_curl_multi_select
 # endif
+#else
+#define curl_multi_select_func curl_multi_select
 #endif
 
 Variant HHVM_FUNCTION(curl_multi_select, CResRef mh,
@@ -1308,7 +1314,7 @@ Variant HHVM_FUNCTION(curl_multi_select, CResRef mh,
   int ret;
   unsigned long timeout_ms = (unsigned long)(timeout * 1000.0);
   IOStatusHelper io("curl_multi_select");
-  curl_multi_select(curlm->get(), timeout_ms, &ret);
+  curl_multi_select_func(curlm->get(), timeout_ms, &ret);
   return ret;
 }
 

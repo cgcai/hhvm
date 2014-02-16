@@ -24,7 +24,7 @@ namespace HPHP {
 static class DateExtension : public Extension {
  public:
   DateExtension() : Extension("date", k_PHP_VERSION.c_str()) { }
-  void moduleInit() {
+  void requestInit() {
     IniSetting::Bind(
       this, IniSetting::PHP_INI_ALL,
       "date.timezone",
@@ -94,12 +94,12 @@ static class DateExtension : public Extension {
     return f_date_default_timezone_set(value);
   }
 
-  static String dateTimezoneIniGet(void* p) {
+  static std::string dateTimezoneIniGet(void* p) {
     auto ret = g_context->getTimeZone();
     if (ret.isNull()) {
-      return empty_string;
+      return "";
     }
-    return ret;
+    return ret.toCppString();
   }
 
   double m_date_default_latitude;
@@ -162,9 +162,10 @@ Variant c_DateTime::ti_createfromformat(const String& format,
                                         const String& time,
                                         CObjRef timezone /*= null_object */) {
   c_DateTime *datetime = NEWOBJ(c_DateTime);
-  datetime->m_dt = NEWOBJ(DateTime);
+  const auto curr = (format.find("!") != String::npos) ? 0 : f_time() ;
+  datetime->m_dt = NEWOBJ(DateTime(curr, false));
   if(!datetime->m_dt->fromString(time, c_DateTimeZone::unwrap(timezone),
-                             format.data(), false)) {
+                                 format.data(), false)) {
     return false;
   }
 

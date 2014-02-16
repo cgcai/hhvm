@@ -126,18 +126,18 @@ struct LocalId : IRExtraData {
 struct LocalData : LocalId {
   explicit LocalData(uint32_t id, SSATmp* src)
     : LocalId(id)
-    , valSrc(src)
+    , typeSrc(src)
   {}
 
   bool cseEquals(const LocalData& o) const {
-    return LocalId::cseEquals(o) && valSrc == o.valSrc;
+    return LocalId::cseEquals(o) && typeSrc == o.typeSrc;
   }
   size_t cseHash() const {
-    return hash_int64_pair(LocalId::cseHash(), int64_t(valSrc));
+    return hash_int64_pair(LocalId::cseHash(), int64_t(typeSrc));
   }
   std::string show() const;
 
-  SSATmp* valSrc;
+  SSATmp* typeSrc;
 };
 
 struct IterId : IRExtraData {
@@ -796,6 +796,12 @@ X(ReqBindJmpLt,                 ReqBindJccData);
 X(ReqBindJmpLte,                ReqBindJccData);
 X(ReqBindJmpEq,                 ReqBindJccData);
 X(ReqBindJmpNeq,                ReqBindJccData);
+X(ReqBindJmpGtI,                ReqBindJccData);
+X(ReqBindJmpGteI,               ReqBindJccData);
+X(ReqBindJmpLtI,                ReqBindJccData);
+X(ReqBindJmpLteI,               ReqBindJccData);
+X(ReqBindJmpEqI,                ReqBindJccData);
+X(ReqBindJmpNeqI,               ReqBindJccData);
 X(ReqBindJmpSame,               ReqBindJccData);
 X(ReqBindJmpNSame,              ReqBindJccData);
 X(ReqBindJmpInstanceOfBitmask,  ReqBindJccData);
@@ -808,6 +814,12 @@ X(SideExitJmpLt,                SideExitJccData);
 X(SideExitJmpLte,               SideExitJccData);
 X(SideExitJmpEq,                SideExitJccData);
 X(SideExitJmpNeq,               SideExitJccData);
+X(SideExitJmpGtI,               SideExitJccData);
+X(SideExitJmpGteI,              SideExitJccData);
+X(SideExitJmpLtI,               SideExitJccData);
+X(SideExitJmpLteI,              SideExitJccData);
+X(SideExitJmpEqI,               SideExitJccData);
+X(SideExitJmpNeqI,              SideExitJccData);
 X(SideExitJmpSame,              SideExitJccData);
 X(SideExitJmpNSame,             SideExitJccData);
 X(SideExitJmpInstanceOfBitmask, SideExitJccData);

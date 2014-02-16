@@ -72,7 +72,7 @@ void moveToAlign(CodeBlock& cb,
   }
 }
 
-void emitEagerSyncPoint(Asm& as, const HPHP::Opcode* pc, const Offset spDiff) {
+void emitEagerSyncPoint(Asm& as, const HPHP::Opcode* pc) {
   static COff spOff = offsetof(VMExecutionContext, m_stack) +
     Stack::topOfStackOffset();
   static COff fpOff = offsetof(VMExecutionContext, m_fp);
@@ -85,12 +85,7 @@ void emitEagerSyncPoint(Asm& as, const HPHP::Opcode* pc, const Offset spDiff) {
   as.  push(rEC);
   emitGetGContext(as, rEC);
   as.  storeq(rVmFp, rEC[fpOff]);
-  if (spDiff) {
-    as.  lea(rVmSp[spDiff], rAsm);
-    as.  storeq(rAsm, rEC[spOff]);
-  } else {
-    as.  storeq(rVmSp, rEC[spOff]);
-  }
+  as.  storeq(rVmSp, rEC[spOff]);
   as.  storeq(pc, rEC[pcOff]);
   as.  pop(rEC);
 }
@@ -393,7 +388,6 @@ void zeroExtendIfBool(CodeGenerator::Asm& as, const SSATmp* src, PhysReg reg) {
 }
 
 ConditionCode opToConditionCode(Opcode opc) {
-
   switch (opc) {
   case JmpGt:                 return CC_G;
   case JmpGte:                return CC_GE;
@@ -401,6 +395,12 @@ ConditionCode opToConditionCode(Opcode opc) {
   case JmpLte:                return CC_LE;
   case JmpEq:                 return CC_E;
   case JmpNeq:                return CC_NE;
+  case JmpGtI:                return CC_G;
+  case JmpGteI:               return CC_GE;
+  case JmpLtI:                return CC_L;
+  case JmpLteI:               return CC_LE;
+  case JmpEqI:                return CC_E;
+  case JmpNeqI:               return CC_NE;
   case JmpSame:               return CC_E;
   case JmpNSame:              return CC_NE;
   case JmpInstanceOfBitmask:  return CC_NZ;
@@ -413,6 +413,12 @@ ConditionCode opToConditionCode(Opcode opc) {
   case ReqBindJmpLte:                return CC_LE;
   case ReqBindJmpEq:                 return CC_E;
   case ReqBindJmpNeq:                return CC_NE;
+  case ReqBindJmpGtI:                return CC_G;
+  case ReqBindJmpGteI:               return CC_GE;
+  case ReqBindJmpLtI:                return CC_L;
+  case ReqBindJmpLteI:               return CC_LE;
+  case ReqBindJmpEqI:                return CC_E;
+  case ReqBindJmpNeqI:               return CC_NE;
   case ReqBindJmpSame:               return CC_E;
   case ReqBindJmpNSame:              return CC_NE;
   case ReqBindJmpInstanceOfBitmask:  return CC_NZ;
@@ -425,6 +431,12 @@ ConditionCode opToConditionCode(Opcode opc) {
   case SideExitJmpLte:                return CC_LE;
   case SideExitJmpEq:                 return CC_E;
   case SideExitJmpNeq:                return CC_NE;
+  case SideExitJmpGtI:                return CC_G;
+  case SideExitJmpGteI:               return CC_GE;
+  case SideExitJmpLtI:                return CC_L;
+  case SideExitJmpLteI:               return CC_LE;
+  case SideExitJmpEqI:                return CC_E;
+  case SideExitJmpNeqI:               return CC_NE;
   case SideExitJmpSame:               return CC_E;
   case SideExitJmpNSame:              return CC_NE;
   case SideExitJmpInstanceOfBitmask:  return CC_NZ;

@@ -132,7 +132,11 @@ class IntlResourceData : public SweepableResourceData {
   }
 
   String getErrorMessage() const {
-    return m_error.custom_error_message;
+    auto errorName = u_errorName(m_error.code);
+    if (m_error.custom_error_message.empty()) {
+      return errorName;
+    }
+    return m_error.custom_error_message + ": " + errorName;
   }
 
   intl_error m_error;
@@ -198,13 +202,17 @@ class IntlExtension : public Extension {
   IntlExtension() : Extension("intl.not-done", "1.1.0") {}
 
   void moduleInit() override {
-    bindIniSettings();
     bindConstants();
     initLocale();
     initNumberFormatter();
     initTimeZone();
     initIterator();
     initDateFormatter();
+    initCalendar();
+  }
+
+  void requestInit() override {
+    bindIniSettings();
   }
 
  private:
@@ -212,7 +220,7 @@ class IntlExtension : public Extension {
     s_intl_request->setDefaultLocale(value->data());
     return true;
   }
-  static String icu_get_default_locale(void *p) {
+  static std::string icu_get_default_locale(void *p) {
     return s_intl_request->getDefaultLocale();
   }
 
@@ -223,6 +231,7 @@ class IntlExtension : public Extension {
   void initTimeZone();
   void initIterator();
   void initDateFormatter();
+  void initCalendar();
 };
 
 } // namespace Intl

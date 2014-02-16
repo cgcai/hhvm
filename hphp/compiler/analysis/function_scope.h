@@ -106,6 +106,7 @@ public:
   bool isNative() const;
   bool isFinal() const;
   bool isMagic() const;
+  bool isBuiltin() const override { return !getStmt() || isNative(); }
   bool isRefParam(int index) const;
   bool isRefReturn() const { return m_refReturn;}
   bool isDynamicInvoke() const { return m_dynamicInvoke; }
@@ -343,6 +344,8 @@ public:
     string_eqstri> UserAttributeMap;
 
   UserAttributeMap& userAttributes() { return m_userAttributes;}
+
+  std::vector<std::string> getUserAttributeStringParams(const std::string& key);
 
   /**
    * Override BlockScope::outputPHP() to generate return type.

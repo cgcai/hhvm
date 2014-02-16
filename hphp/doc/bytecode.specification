@@ -237,6 +237,13 @@ the outer function represents "eager execution" of the async function, and the
 inner function is used when "suspended execution" is necessary (i.e. if it does
 an await on something that is not yet available).
 
+Both functions are required to 'have the same effects', except one works in a
+suspended mode. The inner body must start with UnpackCont, followed by a
+switch. Each switch target must exactly correspond to a section of the outer
+function that lies between two await points. Other than the bytecode used to
+compile await expressions, this switch, and returns, the bodies must consist of
+the same bytecode instructions.
+
 Async function closures are implemented the same way, but importantly the
 "eager execution" function will be the __invoke function on a closure subclass.
 
@@ -1150,11 +1157,15 @@ ClsCnsD <litstr id> <litstr id>    []  ->  [C:Null|Bool|Int|Dbl|Static Str]
   class %2 onto the stack. If there is no class constant named %1 in class %2,
   this instruction throws a fatal error.
 
-File    []  ->  [C:Str]
-Dir     []  ->  [C:Str]
+File    []  ->  [C:Static Str]
+Dir     []  ->  [C:Static Str]
 
   Push string. File pushes __FILE__ onto the stack, and Dir pushes __DIR__ onto
   the stack.
+
+NameA   [A] ->  [C:Static Str]
+
+  Push the name of the class in $1 as a string.
 
 
 3. Operator instructions
@@ -1835,6 +1846,23 @@ UnsetG    [C]  ->  []
   Unset global. This instruction breaks any bindings the global variable named
   (string)$1 may have and marks the global variable as undefined.
 
+CheckProp <propName> [] -> [C:Bool]
+
+  Check non-scalar property initializer. This instruction checks the
+  initializer for property named %1 in the context class, and pushes
+  true on the stack if it is initialized, and false otherwise.
+
+InitProp <propName> <op> [C] -> []
+
+  Initialize non-scalar property. If %2 is 'NonStatic', this instruction sets
+  the initializer for the property named %1 in the context class to $1. If %2
+  is 'Static', this instruction sets the initializer for the static property
+  named %1 in the context class to $1.
+
+  The CheckProp and InitProp opcodes should only be used in 86pinit methods.
+  86pinit methods are HHVM-internal property initialization methods that
+  cannot be called from user-land. After 86pinit runs, no declared properties
+  of the class can be of type NullUninit.
 
 8. Call instructions
 --------------------

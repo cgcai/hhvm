@@ -46,6 +46,12 @@ struct Options {
   //////////////////////////////////////////////////////////////////////
 
   /*
+   * If true, all optimizations are disabled, and analysis isn't even
+   * performed.
+   */
+  bool NoOptimizations = false;
+
+  /*
    * If true, completely remove jumps to blocks that are inferred to
    * be dead.  When false, dead blocks are replaced with Fatal
    * bytecodes.
@@ -79,7 +85,17 @@ struct Options {
    * Whether to replace bytecode with less expensive bytecodes when we
    * can.  E.g. InstanceOf -> InstanceOfD or FPushFunc -> FPushFuncD.
    */
-  bool StrengthReduceBC = true;
+  bool StrengthReduce = true;
+
+  /*
+   * Whether to enable 'FuncFamily' method resolution.
+   *
+   * TODO(#3666741): This is guarded by a flag because currently
+   * turning it on seems to cause a performance regression, despite
+   * the fact that it also seems to infer a lot more types.  We'll
+   * probably remove the flag once that is figured out.
+   */
+  bool EnableFuncFamilies = false;
 
   //////////////////////////////////////////////////////////////////////
   // Flags below this line perform optimizations that intentionally
@@ -141,6 +157,13 @@ whole_program(std::vector<std::unique_ptr<UnitEmitter>>);
  * Perform single-unit optimizations.
  */
 std::unique_ptr<UnitEmitter> single_unit(std::unique_ptr<UnitEmitter>);
+
+//////////////////////////////////////////////////////////////////////
+
+/*
+ * Main entry point when the program should behave like hhbbc.
+ */
+int main(int argc, char** argv);
 
 //////////////////////////////////////////////////////////////////////
 

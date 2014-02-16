@@ -39,6 +39,11 @@ DECLARE_BOOST_TYPES(FileScope);
 
 class Symbol;
 
+enum class Derivation {
+  Normal,
+  Redeclaring,    // At least one ancestor class or interface is redeclared.
+};
+
 /**
  * A class scope corresponds to a class declaration. We store all
  * inferred types and analyzed results here, so not to pollute syntax trees.
@@ -90,11 +95,6 @@ public:
     Abstract = 16,
     Final = 32
   };
-  enum Derivation {
-    FromNormal = 0,
-    DirectFromRedeclared,
-    IndirectFromRedeclared
-  };
 
   enum JumpTableName {
     JumpTableCallInfo
@@ -141,6 +141,7 @@ public:
   bool isExtensionClass() const { return getAttribute(Extension); }
   bool isDynamic() const { return m_dynamic; }
   bool isBaseClass() const { return m_bases.empty(); }
+  bool isBuiltin() const { return !getStmt(); }
 
   /**
    * Whether this class name was declared twice or more.
@@ -205,8 +206,7 @@ public:
    */
   void collectMethods(AnalysisResultPtr ar,
                       StringToFunctionScopePtrMap &func,
-                      bool collectPrivate = true,
-                      bool forInvoke = false);
+                      bool collectPrivate);
 
   /**
    * Whether or not we can directly call ObjectData::o_invoke() when lookup

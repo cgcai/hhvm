@@ -861,11 +861,11 @@
         },
         {
             "name": "HPHP_VERSION",
-            "value": "2.4.0-dev"
+            "value": "2.5.0-dev"
         },
         {
             "name": "HHVM_VERSION",
-            "value": "2.4.0-dev"
+            "value": "2.5.0-dev"
         },
         {
             "name": "HTML_ENTITIES",
@@ -5632,14 +5632,6 @@
         {
             "name": "T_YIELD",
             "type": "Int64"
-        },
-        {
-            "name": "ULOC_ACTUAL_LOCALE",
-            "value": 0
-        },
-        {
-            "name": "ULOC_VALID_LOCALE",
-            "value": 1
         },
         {
             "name": "UNKNOWN_TYPE",

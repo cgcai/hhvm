@@ -29,6 +29,7 @@
 #include "hphp/hhbbc/debug.h"
 #include "hphp/hhbbc/abstract-interp.h"
 #include "hphp/hhbbc/type-system.h"
+#include "hphp/hhbbc/stats.h"
 #include "hphp/runtime/vm/unit.h"
 
 namespace HPHP { namespace HHBBC {
@@ -212,7 +213,7 @@ void optimize(Index& index, php::Program& program) {
         "analyzing",
         folly::format("round {} -- {} work items", round, work.size()).str()
       );
-      return parallel_map(
+      return parallel::map(
         work,
         // We have a folly::Optional just to keep the result type
         // DefaultConstructible.
@@ -279,7 +280,7 @@ void optimize(Index& index, php::Program& program) {
    * queries to php::Func and php::Class structures.
    */
   trace_time final_pass("final pass");
-  parallel_for_each(
+  parallel::for_each(
     all_function_contexts(program),
     [&] (Context ctx) { optimize_func(index, analyze_func(index, ctx)); }
   );
@@ -291,7 +292,7 @@ template<class Container>
 std::unique_ptr<php::Program> parse_program(const Container& units) {
   trace_time tracer("parse");
   auto ret = folly::make_unique<php::Program>();
-  ret->units = parallel_map(
+  ret->units = parallel::map(
     units,
     [&] (const std::unique_ptr<UnitEmitter>& ue) {
       return parse_unit(*ue);
@@ -303,7 +304,7 @@ std::unique_ptr<php::Program> parse_program(const Container& units) {
 std::vector<std::unique_ptr<UnitEmitter>>
 make_unit_emitters(const Index& index, const php::Program& program) {
   trace_time trace("make_unit_emitters");
-  return parallel_map(
+  return parallel::map(
     program.units,
     [&] (const std::unique_ptr<php::Unit>& unit) {
       return emit_unit(index, *unit);
@@ -329,11 +330,10 @@ whole_program(std::vector<std::unique_ptr<UnitEmitter>> ues) {
   state_after("parse", *program);
 
   Index index{borrow(program)};
-  optimize(index, *program);
+  if (!options.NoOptimizations) optimize(index, *program);
 
-  if (Trace::moduleEnabledRelease(Trace::hhbbc_dump, 1)) {
-    debug_dump_program(*program);
-  }
+  debug_dump_program(index, *program);
+  print_stats(index, *program);
 
   LitstrTable::get().setWriting();
   ues = make_unit_emitters(index, *program);

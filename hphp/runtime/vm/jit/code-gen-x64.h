@@ -20,7 +20,7 @@
 #include <vector>
 #include "hphp/runtime/vm/jit/ir.h"
 #include "hphp/runtime/vm/jit/ir-unit.h"
-#include "hphp/runtime/vm/jit/linear-scan.h"
+#include "hphp/runtime/vm/jit/reg-alloc.h"
 #include "hphp/runtime/base/rds.h"
 #include "hphp/runtime/vm/jit/arg-group.h"
 #include "hphp/runtime/vm/jit/code-gen-helpers.h"
@@ -123,13 +123,13 @@ struct CodeGenerator {
 private:
   Address cgInst(IRInstruction* inst);
 
-  const PhysLoc curOpd(const SSATmp* t) const {
+  const PhysLoc curPhysLoc(const SSATmp* t) const {
     return m_state.regs[m_curInst][t];
   }
-  const PhysLoc curOpd(const SSATmp& t) const {
-    return curOpd(&t);
+  const PhysLoc curPhysLoc(const SSATmp& t) const {
+    return curPhysLoc(&t);
   }
-  const RegAllocInfo::RegMap& curOpds() const {
+  const RegAllocInfo::RegMap& curPhysLocs() const {
     return m_state.regs[m_curInst];
   }
 
@@ -196,9 +196,7 @@ private:
   template<class Loc>
   void emitTypeGuard(Type type, Loc typeLoc, Loc dataLoc);
 
-  void cgStMemWork(IRInstruction* inst, bool genStoreType);
   void cgStRefWork(IRInstruction* inst, bool genStoreType);
-  void cgStPropWork(IRInstruction* inst, bool genStoreType);
   void cgIncRefWork(Type type, SSATmp* src);
   void cgDecRefWork(IRInstruction* inst, bool genZeroCheck);
 
@@ -246,6 +244,10 @@ private:
   void cgJcc(IRInstruction* inst);          // helper
   void cgReqBindJcc(IRInstruction* inst);   // helper
   void cgSideExitJcc(IRInstruction* inst);  // helper
+  void cgJccI(IRInstruction* inst);         // helper
+  void cgReqBindJccI(IRInstruction* inst);  // helper
+  void cgSideExitJccI(IRInstruction* inst); // helper
+  void emitCmpI(IRInstruction* inst, ConditionCode);
   void cgCmpHelper(IRInstruction* inst,
                    void (Asm::*setter)(Reg8),
                    int64_t (*str_cmp_str)(StringData*, StringData*),
@@ -261,6 +263,7 @@ private:
   void emitReqBindJcc(ConditionCode cc, const ReqBindJccData*);
 
   void emitCompare(SSATmp*, SSATmp*);
+  void emitCompareI(SSATmp*, SSATmp*);
   void emitTestZero(SSATmp*);
   bool emitIncDecHelper(SSATmp* dst, SSATmp* src1, SSATmp* src2,
                         void(Asm::*emitFunc)(Reg64));

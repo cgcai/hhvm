@@ -583,6 +583,7 @@ void execute_command_line_begin(int argc, char **argv, int xhprof) {
   }
 
   Extension::RequestInitModules();
+  process_ini_settings();
 }
 
 void execute_command_line_end(int xhprof, bool coverage, const char *program) {
@@ -760,11 +761,6 @@ static int start_server(const std::string &username) {
   // Create the HttpServer before any warmup requests to properly
   // initialize the process
   HttpServer::Server = std::make_shared<HttpServer>();
-
-  if (RuntimeOption::HHProfServerEnabled) {
-    Logger::Info("Starting up profiling server");
-    HeapProfileServer::Server = std::make_shared<HeapProfileServer>();
-  }
 
   // If we have any warmup requests, replay them before listening for
   // real connections
@@ -1601,8 +1597,6 @@ void hphp_session_init() {
   StatCache::requestInit();
 
   g_vmContext->requestInit();
-
-  process_ini_settings();
 }
 
 ExecutionContext *hphp_context_init() {

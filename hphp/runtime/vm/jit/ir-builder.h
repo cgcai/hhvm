@@ -88,7 +88,10 @@ struct IRBuilder {
   SSATmp* sp() const { return m_state.sp(); }
   SSATmp* fp() const { return m_state.fp(); }
   const GuardConstraints* guards() const { return &m_guardConstraints; }
-
+  uint32_t stackDeficit() const { return m_state.stackDeficit(); }
+  void incStackDeficit() { m_state.incStackDeficit(); }
+  void clearStackDeficit() { m_state.clearStackDeficit(); }
+  EvalStack& evalStack() { return m_state.evalStack(); }
   bool thisAvailable() const { return m_state.thisAvailable(); }
   void setThisAvailable() { m_state.setThisAvailable(); }
 
@@ -111,8 +114,8 @@ struct IRBuilder {
 
   Type localType(uint32_t id, TypeConstraint tc);
   SSATmp* localValue(uint32_t id, TypeConstraint tc);
-  SSATmp* localValueSource(uint32_t id) const {
-    return m_state.localValueSource(id);
+  SSATmp* localTypeSource(uint32_t id) const {
+    return m_state.localTypeSource(id);
   }
   bool inlinedFrameSpansCall() const { return m_state.frameSpansCall(); }
 

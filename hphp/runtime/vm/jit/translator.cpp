@@ -47,6 +47,7 @@
 #include "hphp/runtime/vm/jit/ir-unit.h"
 #include "hphp/runtime/vm/jit/ir-translator.h"
 #include "hphp/runtime/vm/jit/normalized-instruction.h"
+#include "hphp/runtime/vm/jit/print.h"
 #include "hphp/runtime/vm/jit/region-selection.h"
 #include "hphp/runtime/base/rds.h"
 #include "hphp/runtime/vm/jit/tracelet.h"
@@ -228,7 +229,7 @@ Translator::liveType(const Cell* outer, const Location& l, bool specialize) {
   RuntimeType retval = RuntimeType(outerType, innerType);
   const Class *klass = nullptr;
   if (specialize) {
-    // Only infer the class/array kind if specialization requested
+    // Only record the class/array kind if specialization requested
     if (valueType == KindOfObject) {
       klass = valCell->m_data.pobj->getVMClass();
       if (klass != nullptr && (klass->attrs() & AttrFinal)) {
@@ -236,7 +237,10 @@ Translator::liveType(const Cell* outer, const Location& l, bool specialize) {
       }
     } else if (valueType == KindOfArray) {
       ArrayData::ArrayKind arrayKind = valCell->m_data.parr->kind();
-      retval = retval.setArrayKind(arrayKind);
+      // We currently only benefit from array specialization for packed arrays.
+      if (arrayKind == ArrayData::ArrayKind::kPackedKind) {
+        retval = retval.setArrayKind(arrayKind);
+      }
     }
   }
   return retval;
@@ -1007,6 +1011,7 @@ static const struct {
   { OpClsCnsD,     {None,             Stack1,       OutPred,           1 }},
   { OpFile,        {None,             Stack1,       OutString,         1 }},
   { OpDir,         {None,             Stack1,       OutString,         1 }},
+  { OpNameA,       {Stack1,           Stack1,       OutString,         0 }},
 
   /*** 3. Operator instructions ***/
 
@@ -1269,6 +1274,8 @@ static const struct {
   { OpArrayIdx,    {StackTop3,        Stack1,       OutUnknown,       -2 }},
   { OpFloor,       {Stack1,           Stack1,       OutDouble,         0 }},
   { OpCeil,        {Stack1,           Stack1,       OutDouble,         0 }},
+  { OpCheckProp,   {None,             Stack1,       OutBoolean,        1 }},
+  { OpInitProp,    {Stack1,           None,         OutNone,          -1 }},
   { OpAssertTL,    {None,             None,         OutNone,           0 }},
   { OpAssertTStk,  {None,             None,         OutNone,           0 }},
   { OpAssertObjL,  {None,             None,         OutNone,           0 }},
@@ -1675,7 +1682,7 @@ void Translator::handleAssertionEffects(Tracelet& t,
      */
     if (tas.m_changeSet.count(dl->location)) {
       auto const src = findInputSrc(tas.m_t->m_instrStream.last, dl);
-      if (src->outputPredicted) src->outputPredicted = false;
+      if (src && src->outputPredicted) src->outputPredicted = false;
     }
   }
 
@@ -2625,11 +2632,12 @@ DynLocation* TraceletContext::recordRead(const InputInfo& ii,
         m_resolvedDeps[l] = dl;
       }
     } else {
-      // TODO: Once the region translator supports guard relaxation
-      //       (task #2598894), we can enable specialization for all modes.
-      const bool specialize = (RuntimeOption::EvalHHBCRelaxGuards ||
-                               RuntimeOption::EvalHHIRRelaxGuards) &&
-                              tx64->mode() == TransLive;
+      const bool specialize =
+        (tx64->mode() == TransLive    && (RuntimeOption::EvalHHBCRelaxGuards ||
+                                          RuntimeOption::EvalHHIRRelaxGuards))
+        ||
+        (tx64->mode() == TransProfile &&  RuntimeOption::EvalHHIRRelaxGuards);
+
       RuntimeType rtt = tx64->liveType(l, *liveUnit(), specialize);
       assert(rtt.isIter() || !rtt.isVagueValue());
       // Allocate a new DynLocation to represent this and store it in the
@@ -3775,9 +3783,7 @@ breakBB:
     }
   }
 
-  // translateRegion doesn't support guard relaxation/specialization yet
-  if (RuntimeOption::EvalHHBCRelaxGuards &&
-      m_mode != TransProfile && m_mode != TransOptimize) {
+  if (RuntimeOption::EvalHHBCRelaxGuards && m_mode == TransLive) {
     relaxDeps(t, tas);
   }
 
@@ -4050,12 +4056,6 @@ void Translator::traceStart(Offset initBcOffset, Offset initSpOffset,
          color(ANSI_COLOR_END));
 
   m_irTrans.reset(new JIT::IRTranslator(initBcOffset, initSpOffset, func));
-
-  // XXX t3582470: TransOptimize translations don't work with hhir guard
-  // relaxation yet.
-  if (m_mode == TransOptimize) {
-    m_irTrans->hhbcTrans().traceBuilder().setConstrainGuards(false);
-  }
 }
 
 void Translator::traceEnd() {
@@ -4236,9 +4236,14 @@ Translator::translateRegion(const RegionDesc& region,
       try {
         m_irTrans->translateInstr(inst);
       } catch (const JIT::FailedIRGen& exn) {
-        FTRACE(1, "ir generation for {} failed with {}\n",
-               inst.toString(), exn.what());
-        always_assert(!toInterp.count(sk));
+        always_assert_log(
+          !toInterp.count(sk),
+          [&] {
+            std::ostringstream oss;
+            oss << folly::format("IR generation failed with {}\n", exn.what());
+            print(oss, m_irTrans->hhbcTrans().unit());
+            return oss.str();
+          });
         toInterp.insert(sk);
         return Retry;
       }
@@ -4262,9 +4267,15 @@ Translator::translateRegion(const RegionDesc& region,
     traceCodeGen();
     if (profilingFunc) profData()->setProfiling(startSk.func()->getFuncId());
   } catch (const JIT::FailedCodeGen& exn) {
-    FTRACE(1, "code generation failed with {}\n", exn.what());
     SrcKey sk{exn.vmFunc, exn.bcOff};
-    always_assert(!toInterp.count(sk));
+    always_assert_log(
+      !toInterp.count(sk),
+      [&] {
+        std::ostringstream oss;
+        oss << folly::format("code generation failed with {}\n", exn.what());
+        print(oss, m_irTrans->hhbcTrans().unit());
+        return oss.str();
+      });
     toInterp.insert(sk);
     return Retry;
   }

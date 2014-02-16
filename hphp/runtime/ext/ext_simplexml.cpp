@@ -1392,7 +1392,7 @@ Array c_SimpleXMLElement::t_getdocnamespaces(bool recursive /* = false */,
                                              bool from_root /* = true */) {
   xmlNodePtr node =
     from_root ? xmlDocGetRootElement(document.getTyped<XmlDocWrapper>()->doc) :
-                node;
+                this->node;
   Array ret = Array::Create();
   sxe_add_registered_namespaces(this, node, recursive, ret);
   return ret;
@@ -1633,7 +1633,7 @@ int64_t c_SimpleXMLElement::t_count() {
 // ArrayAccess
 
 bool c_SimpleXMLElement::t_offsetexists(CVarRef index) {
-  return sxe_prop_dim_exists(this, index, true, false, true);
+  return sxe_prop_dim_exists(this, index, false, false, true);
 }
 
 Variant c_SimpleXMLElement::t_offsetget(CVarRef index) {

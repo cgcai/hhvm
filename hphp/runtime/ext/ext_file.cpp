@@ -52,7 +52,7 @@
 #include <pwd.h>
 #include <fnmatch.h>
 
-#define CHECK_HANDLE_BASE(handle, f, ret) \
+#define CHECK_HANDLE_BASE(handle, f, ret)               \
   File *f = handle.getTyped<File>(true, true);          \
   if (f == nullptr || f->isClosed()) {                  \
     raise_warning("Not a valid stream resource");       \
@@ -423,7 +423,8 @@ Variant f_file_get_contents(const String& filename,
 Variant f_file_put_contents(const String& filename, CVarRef data,
                             int flags /* = 0 */,
                             CVarRef context /* = null */) {
-  Variant fvar = File::Open(filename, (flags & PHP_FILE_APPEND) ? "ab" : "wb");
+  Variant fvar = File::Open(filename, (flags & PHP_FILE_APPEND) ? "ab" : "wb",
+                            flags, context);
   if (!fvar.toBoolean()) {
     return false;
   }
@@ -494,7 +495,10 @@ Variant f_file_put_contents(const String& filename, CVarRef data,
   if (numbytes < 0) {
     return false;
   }
-  return numbytes;
+
+  // Since streams (ex. buffered files) often do the real work in close() we
+  // call it here and check the result instead of out-of-band in the destructor.
+  return f->close() ? numbytes : false;
 }
 
 Variant f_file(const String& filename, int flags /* = 0 */,
@@ -607,33 +611,6 @@ Variant f_parse_ini_string(const String& ini,
   return IniSetting::FromString(ini, "", process_sections, scanner_mode);
 }
 
-Variant f_parse_hdf_file(const String& filename) {
-  Variant content = f_file_get_contents(filename);
-  if (same(content, false)) return false;
-  return f_parse_hdf_string(content.toString());
-}
-
-Variant f_parse_hdf_string(const String& input) {
-  Hdf hdf;
-  hdf.fromString(input.data());
-  return ArrayUtil::FromHdf(hdf);
-}
-
-bool f_write_hdf_file(CArrRef data, const String& filename) {
-  Hdf hdf;
-  ArrayUtil::ToHdf(data, hdf);
-  const char *str = hdf.toString();
-  Variant ret = f_file_put_contents(filename, str);
-  return !same(ret, false);
-}
-
-String f_write_hdf_string(CArrRef data) {
-  Hdf hdf;
-  ArrayUtil::ToHdf(data, hdf);
-  const char *str = hdf.toString();
-  return String(str, CopyString);
-}
-
 Variant f_md5_file(const String& filename, bool raw_output /* = false */) {
   return HHVM_FN(hash_file)("md5", filename, raw_output);
 }
@@ -723,6 +700,9 @@ Variant f_linkinfo(const String& filename) {
 
 bool f_is_writable(const String& filename) {
   struct stat sb;
+  if (filename.empty()) {
+    return false;
+  }
   if (statSyscall(filename, &sb)) {
     return false;
   }
@@ -758,6 +738,9 @@ bool f_is_writeable(const String& filename) {
 
 bool f_is_readable(const String& filename) {
   struct stat sb;
+  if (filename.empty()) {
+    return false;
+  }
   CHECK_SYSTEM(statSyscall(filename, &sb, true));
   CHECK_SYSTEM(accessSyscall(filename, R_OK, true));
   return true;
@@ -787,6 +770,9 @@ bool f_is_readable(const String& filename) {
 
 bool f_is_executable(const String& filename) {
   struct stat sb;
+  if (filename.empty()) {
+    return false;
+  }
   CHECK_SYSTEM(statSyscall(filename, &sb));
   CHECK_SYSTEM(accessSyscall(filename, X_OK));
   return true;
